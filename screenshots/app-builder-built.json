@@ -1,0 +1,41 @@
+{
+  "url": "http://127.0.0.1:8081/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "Paperplane",
+      "hasCanvas": false,
+      "bodyTextLen": 501,
+      "bodyTextHash": "86a0b37288b98b3cf1956c0a7f1c496443673c2a1d83f16a77e12c80e0b67fdf",
+      "bodyTextPrefix": "Paperplane Submit Teacher desk Assignment drop Done with it? Sen",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "Paperplane",
+      "hasCanvas": false,
+      "bodyTextLen": 501,
+      "bodyTextHash": "86a0b37288b98b3cf1956c0a7f1c496443673c2a1d83f16a77e12c80e0b67fdf",
+      "bodyTextPrefix": "Paperplane Submit Teacher desk Assignment drop Done with it? Sen",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-built-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-built.json",
+  "divergesFromBaseline": true,
+  "baselineReasons": [
+    "desktop: body text changed (435 -> 501 chars, hash mismatch)",
+    "mobile: body text changed (435 -> 501 chars, hash mismatch)"
+  ]
+}
