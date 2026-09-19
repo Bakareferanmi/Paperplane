@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site-header";
 import { TeacherDesk } from "@/components/teacher-desk";
+import { SignInGate, SignInButtons } from "@/lib/auth/gates";
 
 export const Route = createFileRoute("/desk")({ component: DeskPage });
 
@@ -16,7 +17,18 @@ function DeskPage() {
           </p>
         </section>
         <div className="reveal reveal-2">
-          <TeacherDesk />
+          <SignInGate
+            fallback={
+              <div className="flex flex-col items-center gap-4 py-12 text-center">
+                <p className="text-sm text-muted-foreground">
+                  Sign in to view student submissions.
+                </p>
+                <SignInButtons />
+              </div>
+            }
+          >
+            <TeacherDesk />
+          </SignInGate>
         </div>
       </main>
     </div>

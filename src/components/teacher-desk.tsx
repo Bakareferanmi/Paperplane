@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { Download, Inbox, LoaderCircle } from "lucide-react";
+import { Download, Eye, Inbox, LoaderCircle } from "lucide-react";
 import { toast } from "sonner";
 import { CLASS_CODES, CLASS_LABELS, type ClassCode } from "@/lib/classes";
 import {
@@ -32,6 +32,34 @@ function base64ToBlob(b64: string, type: string): Blob {
   return new Blob([bytes], { type: type || "application/octet-stream" });
 }
 
+function isPreviewableType(fileType: string): boolean {
+  return (
+    fileType.startsWith("image/") ||
+    fileType === "application/pdf" ||
+    fileType.startsWith("text/")
+  );
+}
+
+function getWeekStart(d: Date): Date {
+  const date = new Date(d);
+  const day = date.getDay();
+  const diff = (day === 0 ? -6 : 1) - day;
+  date.setDate(date.getDate() + diff);
+  date.setHours(0, 0, 0, 0);
+  return date;
+}
+
+function weekKey(d: Date): string {
+  return getWeekStart(d).toISOString().slice(0, 10);
+}
+
+function formatWeekLabel(start: Date): string {
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const fmt = new Intl.DateTimeFormat(undefined, { month: "short", day: "numeric" });
+  return `Week of ${fmt.format(start)} – ${fmt.format(end)}`;
+}
+
 export function TeacherDesk() {
   const [rows, setRows] = useState<SubmissionListItem[] | null>(null);
   const [filter, setFilter] = useState<ClassCode | "all">("all");
@@ -39,6 +67,7 @@ export function TeacherDesk() {
   const [files, setFiles] = useState<Record<number, SubmissionFileMeta[]>>({});
   const [loadingFiles, setLoadingFiles] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<number | null>(null);
+  const [previewing, setPreviewing] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,6 +91,17 @@ export function TeacherDesk() {
     if (filter === "all") return rows;
     return rows.filter((row) => row.classCode === filter);
   }, [rows, filter]);
+
+  const weeks = useMemo(() => {
+    const map = new Map<string, { start: Date; rows: SubmissionListItem[] }>();
+    for (const row of visible) {
+      const d = new Date(row.createdAt);
+      const key = weekKey(d);
+      if (!map.has(key)) map.set(key, { start: getWeekStart(d), rows: [] });
+      map.get(key)!.rows.push(row);
+    }
+    return Array.from(map.values()).sort((a, b) => b.start.getTime() - a.start.getTime());
+  }, [visible]);
 
   const counts = useMemo(() => {
     const next: Record<string, number> = { all: rows?.length ?? 0 };
@@ -110,6 +150,32 @@ export function TeacherDesk() {
     }
   }
 
+  async function viewFile(fileId: number, fileName: string) {
+    setPreviewing(fileId);
+    try {
+      const file = await getSubmissionFile({ data: { fileId } });
+      const blob = base64ToBlob(file.fileData, file.fileType);
+      const url = URL.createObjectURL(blob);
+      if (isPreviewableType(file.fileType)) {
+        window.open(url, "_blank", "noopener");
+        setTimeout(() => URL.revokeObjectURL(url), 60_000);
+      } else {
+        toast.info("This file type can't preview in-browser — downloading instead.");
+        const link = document.createElement("a");
+        link.href = url;
+        link.download = file.fileName || fileName;
+        document.body.appendChild(link);
+        link.click();
+        link.remove();
+        URL.revokeObjectURL(url);
+      }
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not open file.");
+    } finally {
+      setPreviewing(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-2">
@@ -152,77 +218,102 @@ export function TeacherDesk() {
           </CardContent>
         </Card>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {visible.map((row) => {
-            const open = openId === row.id;
-            return (
-              <li key={row.id}>
-                <Card>
-                  <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <p className="truncate text-base font-semibold">{row.studentName}</p>
-                          <Badge variant="secondary">{row.classCode}</Badge>
-                        </div>
-                        <p className="mt-1 text-sm text-muted-foreground">
-                          {row.subject ? row.subject : "Untitled drop"}
-                          <span className="mx-1.5 text-border">·</span>
-                          <span className="tabular-nums">{formatWhen(row.createdAt)}</span>
-                          <span className="mx-1.5 text-border">·</span>
-                          {row.fileCount} {row.fileCount === 1 ? "file" : "files"}
-                        </p>
-                      </div>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        className="w-full sm:w-auto"
-                        onClick={() => void toggleFiles(row.id)}
-                      >
-                        {open ? "Hide files" : "Open files"}
-                      </Button>
-                    </div>
-                    {open ? (
-                      <div className="rounded-md bg-secondary/60 p-2">
-                        {loadingFiles === row.id ? (
-                          <p className="px-2 py-3 text-sm text-muted-foreground">Loading files…</p>
-                        ) : (
-                          <ul className="flex flex-col gap-1">
-                            {(files[row.id] ?? []).map((file) => (
-                              <li
-                                key={file.id}
-                                className="flex items-center justify-between gap-3 rounded-sm px-2 py-2"
-                              >
-                                <span className="min-w-0">
-                                  <span className="block truncate text-sm font-medium">
-                                    {file.fileName}
-                                  </span>
-                                  <span className="text-xs text-muted-foreground tabular-nums">
-                                    {formatBytes(file.fileSize)}
-                                  </span>
-                                </span>
-                                <Button
-                                  type="button"
-                                  size="sm"
-                                  variant="ghost"
-                                  disabled={downloading === file.id}
-                                  onClick={() => void downloadFile(file.id, file.fileName)}
-                                >
-                                  <Download className="size-4" />
-                                  {downloading === file.id ? "Saving" : "Download"}
-                                </Button>
-                              </li>
-                            ))}
-                          </ul>
-                        )}
-                      </div>
-                    ) : null}
-                  </CardContent>
-                </Card>
-              </li>
-            );
-          })}
-        </ul>
+        <div className="flex flex-col gap-8">
+          {weeks.map((week) => (
+            <section key={week.start.toISOString()} className="flex flex-col gap-3">
+              <h2 className="text-sm font-semibold text-muted-foreground">
+                {formatWeekLabel(week.start)}
+              </h2>
+              <ul className="flex flex-col gap-3">
+                {week.rows.map((row) => {
+                  const open = openId === row.id;
+                  return (
+                    <li key={row.id}>
+                      <Card>
+                        <CardContent className="flex flex-col gap-3 p-4 sm:p-5">
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="min-w-0">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <p className="truncate text-base font-semibold">
+                                  {row.studentName}
+                                </p>
+                                <Badge variant="secondary">{row.classCode}</Badge>
+                              </div>
+                              <p className="mt-1 text-sm text-muted-foreground">
+                                {row.subject ? row.subject : "Untitled drop"}
+                                <span className="mx-1.5 text-border">·</span>
+                                <span className="tabular-nums">{formatWhen(row.createdAt)}</span>
+                                <span className="mx-1.5 text-border">·</span>
+                                {row.fileCount} {row.fileCount === 1 ? "file" : "files"}
+                              </p>
+                            </div>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="w-full sm:w-auto"
+                              onClick={() => void toggleFiles(row.id)}
+                            >
+                              {open ? "Hide files" : "Open files"}
+                            </Button>
+                          </div>
+                          {open ? (
+                            <div className="rounded-md bg-secondary/60 p-2">
+                              {loadingFiles === row.id ? (
+                                <p className="px-2 py-3 text-sm text-muted-foreground">
+                                  Loading files…
+                                </p>
+                              ) : (
+                                <ul className="flex flex-col gap-1">
+                                  {(files[row.id] ?? []).map((file) => (
+                                    <li
+                                      key={file.id}
+                                      className="flex items-center justify-between gap-3 rounded-sm px-2 py-2"
+                                    >
+                                      <span className="min-w-0">
+                                        <span className="block truncate text-sm font-medium">
+                                          {file.fileName}
+                                        </span>
+                                        <span className="text-xs text-muted-foreground tabular-nums">
+                                          {formatBytes(file.fileSize)}
+                                        </span>
+                                      </span>
+                                      <span className="flex items-center gap-1">
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled={previewing === file.id}
+                                          onClick={() => void viewFile(file.id, file.fileName)}
+                                        >
+                                          <Eye className="size-4" />
+                                          {previewing === file.id ? "Opening" : "View"}
+                                        </Button>
+                                        <Button
+                                          type="button"
+                                          size="sm"
+                                          variant="ghost"
+                                          disabled={downloading === file.id}
+                                          onClick={() => void downloadFile(file.id, file.fileName)}
+                                        >
+                                          <Download className="size-4" />
+                                          {downloading === file.id ? "Saving" : "Download"}
+                                        </Button>
+                                      </span>
+                                    </li>
+                                  ))}
+                                </ul>
+                              )}
+                            </div>
+                          ) : null}
+                        </CardContent>
+                      </Card>
+                    </li>
+                  );
+                })}
+              </ul>
+            </section>
+          ))}
+        </div>
       )}
       {filter !== "all" ? (
         <p className="text-xs text-muted-foreground">{CLASS_LABELS[filter]} only.</p>
