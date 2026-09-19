@@ -178,7 +178,7 @@ export function AssignmentForm() {
                 <SelectTrigger id="class-code" aria-label="Class">
                   <SelectValue placeholder="Pick SS1, SS2, or SS3" />
                 </SelectTrigger>
-                <SelectContent>
+                <SelectContent position="popper" side="bottom" align="start" avoidCollisions={false} sideOffset={4}>
                   {CLASS_CODES.map((code) => (
                     <SelectItem key={code} value={code}>
                       <span className="flex items-center gap-2">
