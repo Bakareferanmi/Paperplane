@@ -40,11 +40,16 @@ export function AssignmentForm() {
   const [name, setName] = useState("");
   const [classCode, setClassCode] = useState<ClassCode | "">("");
   const [subject, setSubject] = useState("");
+  const [studentId, setStudentId] = useState("");
   const [files, setFiles] = useState<PickedFile[]>([]);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<{ name: string; classCode: ClassCode; assignmentId: string } | null>(
-    null,
-  );
+  const [sent, setSent] = useState<{
+    name: string;
+    classCode: ClassCode;
+    assignmentId: string;
+    studentId: string;
+    isNewStudent: boolean;
+  } | null>(null);
   const [launching, setLaunching] = useState(false);
 
   const greeting = useMemo(() => {
@@ -86,12 +91,19 @@ export function AssignmentForm() {
           studentName: name.trim(),
           classCode,
           subject: subject.trim(),
+          studentId: studentId.trim(),
           files: encoded,
         },
       });
       setLaunching(true);
       window.setTimeout(() => {
-        setSent({ name: name.trim(), classCode, assignmentId: result.assignmentId });
+        setSent({
+          name: name.trim(),
+          classCode,
+          assignmentId: result.assignmentId,
+          studentId: result.studentId,
+          isNewStudent: result.isNewStudent,
+        });
         setLaunching(false);
         setSending(false);
       }, 620);
@@ -114,8 +126,20 @@ export function AssignmentForm() {
               {sent.name}, your {sent.classCode} work is on the teacher desk.
             </p>
             <p className="mt-1 rounded-md bg-secondary/60 px-3 py-1.5 font-mono text-xs text-foreground">
-              Your ID: {sent.assignmentId}
+              Assignment ID: {sent.assignmentId}
             </p>
+            {sent.isNewStudent ? (
+              <p className="mt-1 rounded-md bg-primary/10 px-3 py-1.5 text-xs text-foreground">
+                <span className="font-medium">Save this — it's yours to keep:</span>{" "}
+                <span className="font-mono">{sent.studentId}</span>
+                <br />
+                Use it next time so all your work stays under one profile.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Linked to your profile <span className="font-mono">{sent.studentId}</span>
+              </p>
+            )}
           </div>
           <Button
             type="button"
@@ -217,6 +241,25 @@ export function AssignmentForm() {
               maxLength={80}
               disabled={sending}
               onChange={(event) => setSubject(event.target.value)}
+            />
+          </div>
+
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="student-id">
+              Student ID{" "}
+              <span className="font-normal text-muted-foreground">
+                (leave blank if this is your first time)
+              </span>
+            </Label>
+            <Input
+              id="student-id"
+              name="student-id"
+              placeholder="BAKARESTU12345"
+              value={studentId}
+              maxLength={20}
+              disabled={sending}
+              className="font-mono uppercase"
+              onChange={(event) => setStudentId(event.target.value)}
             />
           </div>
 

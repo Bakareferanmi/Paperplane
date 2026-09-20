@@ -19,7 +19,7 @@ function CheckPage() {
             How'd it land?
           </h1>
           <p className="max-w-xl text-base text-muted-foreground">
-            Enter the assignment ID you got when you submitted to see your marks.
+            Enter your Assignment ID to check one drop, or your Student ID to see your full history.
           </p>
         </section>
         <div className="reveal reveal-2">

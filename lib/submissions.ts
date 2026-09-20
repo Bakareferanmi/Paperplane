@@ -27,6 +27,7 @@ const submitSchema = z.object({
     .max(80, "Name is too long"),
   classCode: z.enum(CLASS_CODES),
   subject: z.string().trim().max(80).optional().default(""),
+  studentId: z.string().trim().max(20).optional().default(""),
   files: z.array(fileSchema).min(1, "Add at least one file").max(MAX_FILES),
 });
 
@@ -48,6 +49,20 @@ export type SubmissionFileMeta = {
   fileSize: number;
 };
 
+export type StudentHistoryItem = {
+  assignmentId: string;
+  subject: string;
+  createdAt: string;
+  marks: number | null;
+};
+
+export type StudentProfile = {
+  studentId: string;
+  studentName: string;
+  classCode: string;
+  submissions: StudentHistoryItem[];
+};
+
 function assertAllowedFile(file: z.infer<typeof fileSchema>) {
   const ext = extensionOf(file.fileName);
   const typeOk = file.fileType ? ALLOWED_TYPES.has(file.fileType) : false;
@@ -62,6 +77,11 @@ function generateAssignmentId(): string {
   return `BAKARE${digits}`;
 }
 
+function generateStudentId(): string {
+  const digits = String(Math.floor(Math.random() * 100000)).padStart(5, "0");
+  return `BAKARESTU${digits}`;
+}
+
 export const createSubmission = createServerFn({ method: "POST" })
   .validator(submitSchema)
   .handler(async ({ data }) => {
@@ -74,14 +94,48 @@ export const createSubmission = createServerFn({ method: "POST" })
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
 
+    let studentRefId: number;
+    let studentId = data.studentId.trim().toUpperCase();
+    let isNewStudent = false;
+
+    if (studentId) {
+      const rows = await sql<{ id: number }>`
+        select id from students where student_id = ${studentId} limit 1
+      `;
+      const row = rows[0];
+      if (!row) throw new Error("That Student ID wasn't found. Leave it blank to get a new one.");
+      studentRefId = row.id;
+    } else {
+      isNewStudent = true;
+      let newId: number | undefined;
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        studentId = generateStudentId();
+        try {
+          const rows = await sql<{ id: number }>`
+            insert into students (student_id, student_name, class_code)
+            values (${studentId}, ${data.studentName}, ${data.classCode})
+            returning id
+          `;
+          newId = rows[0]?.id;
+          break;
+        } catch (error) {
+          const code = (error as { code?: string } | undefined)?.code;
+          if (code === "23505") continue;
+          throw error;
+        }
+      }
+      if (!newId) throw new Error("Could not create a student profile.");
+      studentRefId = newId;
+    }
+
     let id: number | undefined;
     let assignmentId = "";
     for (let attempt = 0; attempt < 5; attempt += 1) {
       assignmentId = generateAssignmentId();
       try {
         const rows = await sql<{ id: number }>`
-          insert into submissions (student_name, class_code, subject, assignment_id)
-          values (${data.studentName}, ${data.classCode}, ${data.subject ?? ""}, ${assignmentId})
+          insert into submissions (student_name, class_code, subject, assignment_id, student_ref_id)
+          values (${data.studentName}, ${data.classCode}, ${data.subject ?? ""}, ${assignmentId}, ${studentRefId})
           returning id
         `;
         id = rows[0]?.id;
@@ -107,7 +161,7 @@ export const createSubmission = createServerFn({ method: "POST" })
       `;
     }
 
-    return { id, assignmentId };
+    return { id, assignmentId, studentId, isNewStudent };
   });
 
 export const listSubmissions = createServerFn({ method: "GET" }).handler(
@@ -241,5 +295,50 @@ export const lookupSubmission = createServerFn({ method: "POST" })
       subject: row.subject,
       createdAt: row.created_at,
       marks: row.marks,
+    };
+  });
+
+export const lookupStudent = createServerFn({ method: "POST" })
+  .validator(z.object({ studentId: z.string().trim().min(1).max(20) }))
+  .handler(async ({ data }): Promise<StudentProfile> => {
+    const { getSql } = await import("@/lib/db");
+    const sql = await getSql();
+    const studentId = data.studentId.toUpperCase();
+    const studentRows = await sql<{
+      id: number;
+      student_id: string;
+      student_name: string;
+      class_code: string;
+    }>`
+      select id, student_id, student_name, class_code
+      from students
+      where student_id = ${studentId}
+      limit 1
+    `;
+    const student = studentRows[0];
+    if (!student) throw new Error("No student found with that ID.");
+
+    const submissionRows = await sql<{
+      assignment_id: string;
+      subject: string;
+      created_at: string;
+      marks: number | null;
+    }>`
+      select assignment_id, subject, created_at::text as created_at, marks
+      from submissions
+      where student_ref_id = ${student.id}
+      order by created_at desc
+    `;
+
+    return {
+      studentId: student.student_id,
+      studentName: student.student_name,
+      classCode: student.class_code,
+      submissions: submissionRows.map((row) => ({
+        assignmentId: row.assignment_id,
+        subject: row.subject,
+        createdAt: row.created_at,
+        marks: row.marks,
+      })),
     };
   });
