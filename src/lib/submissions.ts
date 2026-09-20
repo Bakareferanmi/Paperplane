@@ -213,3 +213,33 @@ export const getSubmissionFile = createServerFn({ method: "POST" })
       fileData: row.file_data,
     };
   });
+
+export const lookupSubmission = createServerFn({ method: "POST" })
+  .validator(z.object({ assignmentId: z.string().trim().min(1).max(20) }))
+  .handler(async ({ data }) => {
+    const { getSql } = await import("@/lib/db");
+    const sql = await getSql();
+    const rows = await sql<{
+      assignment_id: string;
+      student_name: string;
+      class_code: string;
+      subject: string;
+      created_at: string;
+      marks: number | null;
+    }>`
+      select assignment_id, student_name, class_code, subject, created_at::text as created_at, marks
+      from submissions
+      where assignment_id = ${data.assignmentId.toUpperCase()}
+      limit 1
+    `;
+    const row = rows[0];
+    if (!row) throw new Error("No assignment found with that ID.");
+    return {
+      assignmentId: row.assignment_id,
+      studentName: row.student_name,
+      classCode: row.class_code,
+      subject: row.subject,
+      createdAt: row.created_at,
+      marks: row.marks,
+    };
+  });

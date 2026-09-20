@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { useMemo, useState, type FormEvent } from "react";
 import { Check, Send } from "lucide-react";
 import { toast } from "sonner";
@@ -41,7 +42,7 @@ export function AssignmentForm() {
   const [subject, setSubject] = useState("");
   const [files, setFiles] = useState<PickedFile[]>([]);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState<{ name: string; classCode: ClassCode } | null>(
+  const [sent, setSent] = useState<{ name: string; classCode: ClassCode; assignmentId: string } | null>(
     null,
   );
   const [launching, setLaunching] = useState(false);
@@ -80,7 +81,7 @@ export function AssignmentForm() {
           fileData: await readAsBase64(item.file),
         })),
       );
-      await createSubmission({
+      const result = await createSubmission({
         data: {
           studentName: name.trim(),
           classCode,
@@ -90,7 +91,7 @@ export function AssignmentForm() {
       });
       setLaunching(true);
       window.setTimeout(() => {
-        setSent({ name: name.trim(), classCode });
+        setSent({ name: name.trim(), classCode, assignmentId: result.assignmentId });
         setLaunching(false);
         setSending(false);
       }, 620);
@@ -112,6 +113,9 @@ export function AssignmentForm() {
             <p className="max-w-sm text-sm text-muted-foreground">
               {sent.name}, your {sent.classCode} work is on the teacher desk.
             </p>
+            <p className="mt-1 rounded-md bg-secondary/60 px-3 py-1.5 font-mono text-xs text-foreground">
+              Your ID: {sent.assignmentId}
+            </p>
           </div>
           <Button
             type="button"
@@ -126,6 +130,12 @@ export function AssignmentForm() {
           >
             Send another
           </Button>
+          <Link
+            to="/check"
+            className="text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            Check your marks later
+          </Link>
         </CardContent>
       </Card>
     );
