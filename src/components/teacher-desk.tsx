@@ -6,6 +6,7 @@ import {
   getSubmissionFile,
   listSubmissionFiles,
   listSubmissions,
+  setMarks,
   type SubmissionFileMeta,
   type SubmissionListItem,
 } from "@/lib/submissions";
@@ -13,6 +14,15 @@ import { formatBytes } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+const MARK_OPTIONS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10];
 
 function formatWhen(value: string): string {
   const date = new Date(value);
@@ -68,6 +78,7 @@ export function TeacherDesk() {
   const [loadingFiles, setLoadingFiles] = useState<number | null>(null);
   const [downloading, setDownloading] = useState<number | null>(null);
   const [previewing, setPreviewing] = useState<number | null>(null);
+  const [savingMarks, setSavingMarks] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -176,6 +187,21 @@ export function TeacherDesk() {
     }
   }
 
+  async function handleSetMarks(submissionId: number, marks: number) {
+    setSavingMarks(submissionId);
+    try {
+      await setMarks({ data: { submissionId, marks } });
+      setRows((prev) =>
+        prev ? prev.map((row) => (row.id === submissionId ? { ...row, marks } : row)) : prev,
+      );
+      toast.success(`Marked ${marks}/10.`);
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not save marks.");
+    } finally {
+      setSavingMarks(null);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap gap-2">
@@ -246,15 +272,37 @@ export function TeacherDesk() {
                                 <span className="mx-1.5 text-border">·</span>
                                 {row.fileCount} {row.fileCount === 1 ? "file" : "files"}
                               </p>
+                              <p className="mt-1 font-mono text-xs text-muted-foreground">
+                                {row.assignmentId}
+                              </p>
                             </div>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="w-full sm:w-auto"
-                              onClick={() => void toggleFiles(row.id)}
-                            >
-                              {open ? "Hide files" : "Open files"}
-                            </Button>
+                            <div className="flex items-center gap-2">
+                              <Select
+                                value={row.marks ? String(row.marks) : undefined}
+                                onValueChange={(value) =>
+                                  void handleSetMarks(row.id, Number(value))
+                                }
+                                disabled={savingMarks === row.id}
+                              >
+                                <SelectTrigger className="w-24" aria-label="Marks">
+                                  <SelectValue placeholder="Mark" />
+                                </SelectTrigger>
+                                <SelectContent>
+                                  {MARK_OPTIONS.map((n) => (
+                                    <SelectItem key={n} value={String(n)}>
+                                      {n}/10
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                              <Button
+                                type="button"
+                                variant="outline"
+                                onClick={() => void toggleFiles(row.id)}
+                              >
+                                {open ? "Hide files" : "Open files"}
+                              </Button>
+                            </div>
                           </div>
                           {open ? (
                             <div className="rounded-md bg-secondary/60 p-2">
