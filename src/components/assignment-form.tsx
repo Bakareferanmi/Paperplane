@@ -49,6 +49,7 @@ export function AssignmentForm() {
     assignmentId: string;
     studentId: string;
     isNewStudent: boolean;
+    matchedByName: boolean;
   } | null>(null);
   const [launching, setLaunching] = useState(false);
 
@@ -103,6 +104,7 @@ export function AssignmentForm() {
           assignmentId: result.assignmentId,
           studentId: result.studentId,
           isNewStudent: result.isNewStudent,
+          matchedByName: result.matchedByName,
         });
         setLaunching(false);
         setSending(false);
@@ -134,6 +136,11 @@ export function AssignmentForm() {
                 <span className="font-mono">{sent.studentId}</span>
                 <br />
                 Use it next time so all your work stays under one profile.
+              </p>
+            ) : sent.matchedByName ? (
+              <p className="mt-1 rounded-md bg-primary/10 px-3 py-1.5 text-xs text-foreground">
+                Welcome back — matched to your profile{" "}
+                <span className="font-mono">{sent.studentId}</span>.
               </p>
             ) : (
               <p className="mt-1 text-xs text-muted-foreground">

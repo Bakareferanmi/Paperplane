@@ -94,9 +94,11 @@ export const createSubmission = createServerFn({ method: "POST" })
     const { getSql } = await import("@/lib/db");
     const sql = await getSql();
 
+
     let studentRefId: number;
     let studentId = data.studentId.trim().toUpperCase();
     let isNewStudent = false;
+    let matchedByName = false;
 
     if (studentId) {
       const rows = await sql<{ id: number }>`
@@ -106,26 +108,40 @@ export const createSubmission = createServerFn({ method: "POST" })
       if (!row) throw new Error("That Student ID wasn't found. Leave it blank to get a new one.");
       studentRefId = row.id;
     } else {
-      isNewStudent = true;
-      let newId: number | undefined;
-      for (let attempt = 0; attempt < 5; attempt += 1) {
-        studentId = generateStudentId();
-        try {
-          const rows = await sql<{ id: number }>`
-            insert into students (student_id, student_name, class_code)
-            values (${studentId}, ${data.studentName}, ${data.classCode})
-            returning id
-          `;
-          newId = rows[0]?.id;
-          break;
-        } catch (error) {
-          const code = (error as { code?: string } | undefined)?.code;
-          if (code === "23505") continue;
-          throw error;
+      const existing = await sql<{ id: number; student_id: string }>`
+        select id, student_id from students
+        where lower(student_name) = lower(${data.studentName})
+          and class_code = ${data.classCode}
+        order by created_at desc
+        limit 1
+      `;
+      const match = existing[0];
+      if (match) {
+        studentRefId = match.id;
+        studentId = match.student_id;
+        matchedByName = true;
+      } else {
+        isNewStudent = true;
+        let newId: number | undefined;
+        for (let attempt = 0; attempt < 5; attempt += 1) {
+          studentId = generateStudentId();
+          try {
+            const rows = await sql<{ id: number }>`
+              insert into students (student_id, student_name, class_code)
+              values (${studentId}, ${data.studentName}, ${data.classCode})
+              returning id
+            `;
+            newId = rows[0]?.id;
+            break;
+          } catch (error) {
+            const code = (error as { code?: string } | undefined)?.code;
+            if (code === "23505") continue;
+            throw error;
+          }
         }
+        if (!newId) throw new Error("Could not create a student profile.");
+        studentRefId = newId;
       }
-      if (!newId) throw new Error("Could not create a student profile.");
-      studentRefId = newId;
     }
 
     let id: number | undefined;
@@ -161,7 +177,7 @@ export const createSubmission = createServerFn({ method: "POST" })
       `;
     }
 
-    return { id, assignmentId, studentId, isNewStudent };
+    return { id, assignmentId, studentId, isNewStudent, matchedByName };
   });
 
 export const listSubmissions = createServerFn({ method: "GET" }).handler(
