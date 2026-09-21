@@ -35,6 +35,7 @@ export type SubmissionListItem = {
   id: number;
   assignmentId: string;
   studentName: string;
+  studentId: string | null;
   classCode: string;
   subject: string;
   createdAt: string;
@@ -193,6 +194,7 @@ export const listSubmissions = createServerFn({ method: "GET" }).handler(
       created_at: string;
       file_count: number;
       marks: number | null;
+      student_id: string | null;
     }>`
       select
         s.id,
@@ -202,10 +204,12 @@ export const listSubmissions = createServerFn({ method: "GET" }).handler(
         s.subject,
         s.created_at::text as created_at,
         s.marks,
+        st.student_id,
         (
           select count(*)::int from submission_files f where f.submission_id = s.id
         ) as file_count
       from submissions s
+      left join students st on st.id = s.student_ref_id
       order by s.created_at desc
       limit 200
     `;
@@ -218,6 +222,7 @@ export const listSubmissions = createServerFn({ method: "GET" }).handler(
       createdAt: row.created_at,
       fileCount: row.file_count,
       marks: row.marks,
+      studentId: row.student_id,
     }));
   },
 );

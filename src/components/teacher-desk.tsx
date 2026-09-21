@@ -275,6 +275,11 @@ export function TeacherDesk() {
                               <p className="mt-1 font-mono text-xs text-muted-foreground">
                                 {row.assignmentId}
                               </p>
+                              {row.studentId ? (
+                                <p className="mt-0.5 font-mono text-xs text-muted-foreground/70">
+                                  Student ID: {row.studentId}
+                                </p>
+                              ) : null}
                             </div>
                             <div className="flex items-center gap-2">
                               <Select
