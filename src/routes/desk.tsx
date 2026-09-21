@@ -1,3 +1,4 @@
+import { Link } from "@tanstack/react-router";
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteHeader } from "@/components/site-header";
 import { TeacherDesk } from "@/components/teacher-desk";
@@ -15,6 +16,12 @@ function DeskPage() {
           <p className="max-w-xl text-base text-muted-foreground">
             Every paper students send lands here. Open a drop to download the files.
           </p>
+          <Link
+            to="/students"
+            className="w-fit text-sm font-medium text-primary underline-offset-4 hover:underline"
+          >
+            View student ID roster →
+          </Link>
         </section>
         <div className="reveal reveal-2">
           <SignInGate

@@ -363,3 +363,33 @@ export const lookupStudent = createServerFn({ method: "POST" })
       })),
     };
   });
+
+export type StudentListItem = {
+  id: number;
+  studentId: string;
+  studentName: string;
+  classCode: string;
+};
+
+export const listStudents = createServerFn({ method: "GET" }).handler(
+  async (): Promise<StudentListItem[]> => {
+    const { getSql } = await import("@/lib/db");
+    const sql = await getSql();
+    const rows = await sql<{
+      id: number;
+      student_id: string;
+      student_name: string;
+      class_code: string;
+    }>`
+      select id, student_id, student_name, class_code
+      from students
+      order by class_code, student_name
+    `;
+    return rows.map((row) => ({
+      id: row.id,
+      studentId: row.student_id,
+      studentName: row.student_name,
+      classCode: row.class_code,
+    }));
+  },
+);
