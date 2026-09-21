@@ -395,7 +395,7 @@ test("is idempotent", () => {
 });
 
 test("uses the app name in the injected title tag", () => {
-  const out = injectGrokPwaHead("<html><head></head></html>", { appName: "Wild Race" });
+  const out = injectGrokPwaHead("<html><head></head></html>", { appName: "Wild Race", site: {} });
   assert.match(out, /apple-mobile-web-app-title" content="Wild Race"/);
 });
 
@@ -449,14 +449,14 @@ test("strips install params from the app link", () => {
 });
 
 test("names the install page from host slug", () => {
-  assert.equal(appNameFromHost("localhost:8080"), "Grok App");
-  assert.equal(appNameFromHost("172.17.154.217:8080"), "Grok App");
+  assert.equal(appNameFromHost("localhost:8080"), "Paperplane");
+  assert.equal(appNameFromHost("172.17.154.217:8080"), "Paperplane");
   assert.equal(appNameFromHost("wild-race.grok.me"), "Wild Race");
 });
 
 test("rejects hosts that are not plain slugs", () => {
-  assert.equal(appNameFromHost("<script>alert(1)</script>"), "Grok App");
-  assert.equal(appNameFromHost('"><img src=x onerror=1>.grok.me'), "Grok App");
+  assert.equal(appNameFromHost("<script>alert(1)</script>"), "Paperplane");
+  assert.equal(appNameFromHost('"><img src=x onerror=1>.grok.me'), "Paperplane");
 });
 
 test("renders install page markup", () => {
